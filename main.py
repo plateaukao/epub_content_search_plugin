@@ -12,10 +12,11 @@ if False:
     # You do not need this code in your plugins
     get_icons = get_resources = None
 
-from PyQt5.Qt import QDialog, QVBoxLayout, QPushButton, QMessageBox, QLabel
+from PyQt5.Qt import QDialog, QVBoxLayout, QPushButton, QMessageBox, QLabel, QHBoxLayout, QLineEdit
 
 from calibre_plugins.epub_content_search.config import prefs
 
+import subprocess
 
 class DemoDialog(QDialog):
 
@@ -43,6 +44,16 @@ class DemoDialog(QDialog):
         self.about_button = QPushButton('About', self)
         self.about_button.clicked.connect(self.about)
         self.l.addWidget(self.about_button)
+
+        # add search line 
+        self.h = QHBoxLayout()
+        self.l.addLayout(self.h)
+
+        self.search_input = QLineEdit(self)
+        self.h.addWidget(self.search_input)
+        self.search_button = QPushButton('search', self)
+        self.search_button.clicked.connect(self.search_epub_content)
+        self.h.addWidget(self.search_button)
 
         self.marked_button = QPushButton(
             'Show books with only one format in the calibre GUI', self)
@@ -79,6 +90,12 @@ class DemoDialog(QDialog):
         text = get_resources('about.txt')
         QMessageBox.about(self, 'About the Interface Plugin Demo',
                 text.decode('utf-8'))
+
+    def search_epub_content(self):
+        keyword = self.search_input.text()
+        print('search input: '+ keyword)
+        result = subprocess.run([prefs['rga_path'], keyword, '/Users/danielkao/Calibre Library', '-C', '2', '-g', '*.epub'], stdout=subprocess.PIPE)
+        print(result.stdout.decode('utf-8'))
 
     def marked(self):
         ''' Show books with only one format '''

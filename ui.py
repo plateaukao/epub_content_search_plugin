@@ -3,7 +3,7 @@
 
 
 __license__   = 'GPL v3'
-__copyright__ = '2011, Kovid Goyal <kovid@kovidgoyal.net>'
+__copyright__ = '2020, Daniel Kao<daniel.kao@gmail.com>'
 __docformat__ = 'restructuredtext en'
 
 if False:
@@ -14,18 +14,18 @@ if False:
 
 # The class that all interface action plugins must inherit from
 from calibre.gui2.actions import InterfaceAction
-from calibre_plugins.interface_demo.main import DemoDialog
+from calibre_plugins.epub_content_search.main import DemoDialog
 
-class InterfacePlugin(InterfaceAction):
+class EpubTextSearch(InterfaceAction):
 
-    name = 'Interface Plugin Demo'
+    name = 'epub text search plugin'
 
     # Declare the main action associated with this plugin
     # The keyboard shortcut can be None if you dont want to use a keyboard
     # shortcut. Remember that currently calibre has no central management for
     # keyboard shortcuts, so try to use an unusual/unused shortcut.
-    action_spec = ('Interface Plugin Demo', None,
-            'Run the Interface Plugin Demo', 'Ctrl+Shift+F1')
+    action_spec = ('Epub Text Search', None,
+            'Search Epub content', 'Ctrl+Shift+f')
 
     def genesis(self):
         # This method is called once per plugin, do initial setup here
@@ -63,7 +63,7 @@ class InterfacePlugin(InterfaceAction):
         d.show()
 
     def apply_settings(self):
-        from calibre_plugins.interface_demo.config import prefs
+        from calibre_plugins.epub_content_search.config import prefs
         # In an actual non trivial plugin, you would probably need to
         # do something based on the settings in prefs
         prefs

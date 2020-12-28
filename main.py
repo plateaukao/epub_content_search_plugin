@@ -3,7 +3,7 @@
 
 
 __license__   = 'GPL v3'
-__copyright__ = '2011, Kovid Goyal <kovid@kovidgoyal.net>'
+__copyright__ = '2020, Daniel Kao<daniel.kao@gmail.com>'
 __docformat__ = 'restructuredtext en'
 
 if False:
@@ -14,7 +14,7 @@ if False:
 
 from PyQt5.Qt import QDialog, QVBoxLayout, QPushButton, QMessageBox, QLabel
 
-from calibre_plugins.interface_demo.config import prefs
+from calibre_plugins.epub_content_search.config import prefs
 
 
 class DemoDialog(QDialog):
@@ -34,10 +34,10 @@ class DemoDialog(QDialog):
         self.l = QVBoxLayout()
         self.setLayout(self.l)
 
-        self.label = QLabel(prefs['hello_world_msg'])
+        self.label = QLabel('Epub Text Search')
         self.l.addWidget(self.label)
 
-        self.setWindowTitle('Interface Plugin Demo')
+        self.setWindowTitle('Epub Text Search')
         self.setWindowIcon(icon)
 
         self.about_button = QPushButton('About', self)
@@ -151,4 +151,4 @@ class DemoDialog(QDialog):
     def config(self):
         self.do_user_config(parent=self)
         # Apply the changes
-        self.label.setText(prefs['hello_world_msg'])
+        self.label.setText(prefs['rga_path'])

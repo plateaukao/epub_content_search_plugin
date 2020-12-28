@@ -12,11 +12,13 @@ if False:
     # You do not need this code in your plugins
     get_icons = get_resources = None
 
-from PyQt5.Qt import QDialog, QVBoxLayout, QPushButton, QMessageBox, QLabel, QHBoxLayout, QLineEdit
+from PyQt5.Qt import QDialog, QVBoxLayout, QPushButton, QMessageBox, QLabel, QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QWidget, QLayout, QScrollBar, QAbstractItemView
 
 from calibre_plugins.epub_content_search.config import prefs
 
 import subprocess
+
+from functools import partial
 
 class DemoDialog(QDialog):
 
@@ -45,35 +47,26 @@ class DemoDialog(QDialog):
         self.about_button.clicked.connect(self.about)
         self.l.addWidget(self.about_button)
 
-        # add search line 
-        self.h = QHBoxLayout()
-        self.l.addLayout(self.h)
-
-        self.search_input = QLineEdit(self)
-        self.h.addWidget(self.search_input)
-        self.search_button = QPushButton('search', self)
-        self.search_button.clicked.connect(self.search_epub_content)
-        self.h.addWidget(self.search_button)
-
-        self.marked_button = QPushButton(
-            'Show books with only one format in the calibre GUI', self)
-        self.marked_button.clicked.connect(self.marked)
-        self.l.addWidget(self.marked_button)
-
-        self.view_button = QPushButton(
-            'View the most recently added book', self)
-        self.view_button.clicked.connect(self.view)
-        self.l.addWidget(self.view_button)
-
-        self.update_metadata_button = QPushButton(
-            'Update metadata in a book\'s files', self)
-        self.update_metadata_button.clicked.connect(self.update_metadata)
-        self.l.addWidget(self.update_metadata_button)
-
-        self.conf_button = QPushButton(
-                'Configure this plugin', self)
+        self.conf_button = QPushButton('Configure this plugin', self)
         self.conf_button.clicked.connect(self.config)
         self.l.addWidget(self.conf_button)
+
+        # add search line 
+        self.search_layout = QHBoxLayout()
+        self.l.addLayout(self.search_layout)
+
+        self.search_input = QLineEdit(self)
+        self.search_layout.addWidget(self.search_input)
+        self.search_button = QPushButton('search', self)
+        self.search_button.clicked.connect(self.search_epub_content)
+        self.search_layout.addWidget(self.search_button)
+
+        # add search results
+        self.scroll_bar = QScrollBar(self) 
+        self.search_results = QListWidget()
+        self.search_results.setVerticalScrollBar(self.scroll_bar)
+        self.search_results.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel) 
+        self.l.addWidget(self.search_results)
 
         self.resize(self.sizeHint())
 
@@ -83,9 +76,14 @@ class DemoDialog(QDialog):
 
     def search_epub_content(self):
         ''' Search epub content '''
+        # reset results layout
+        self.search_results.clear()
+
+        # get search input
         keyword = self.search_input.text()
         print('search input: '+ keyword)
 
+        # search in each book
         db = self.db.new_api
         matched_ids = {book_id for book_id in db.all_book_ids() if 'EPUB' in db.formats(book_id)}
         for book_id in matched_ids:
@@ -95,9 +93,21 @@ class DemoDialog(QDialog):
                 filepath = fmt_path = self.gui.current_db.format_abspath(book_id, 'EPUB', index_is_id=True)
                 result = subprocess.run([prefs['rga_path'], keyword, filepath, '-C', '2', '-g', '*.epub'], stdout=subprocess.PIPE)
                 if len(result.stdout) != 0:
-                  print(title)
-                  print(filepath)
-                  print(result.stdout.decode('utf-8'))
+                  widgetLayout = QVBoxLayout()
+                  book_button = QPushButton(title, self)
+                  book_button.clicked.connect(partial(self.view, book_id))
+                  widgetLayout.addWidget(book_button)
+                  label = result.stdout.decode('utf-8')
+                  widgetLayout.addWidget(QLabel(label))
+                  #widgetLayout.addStretch()
+                  widgetLayout.setSizeConstraint(QLayout.SetFixedSize)
+
+                  widget = QWidget()
+                  widget.setLayout(widgetLayout)
+                  widgetItem = QListWidgetItem()
+                  widgetItem.setSizeHint(widget.sizeHint())
+                  self.search_results.addItem(widgetItem)
+                  self.search_results.setItemWidget(widgetItem, widget)
 
     def marked(self):
         ''' Show books with only one format '''
@@ -112,60 +122,12 @@ class DemoDialog(QDialog):
         self.gui.search.setEditText('marked:true')
         self.gui.search.do_search()
 
-    def view(self):
-        ''' View the most recently added book '''
-        most_recent = most_recent_id = None
-        db = self.db.new_api
-        for book_id, timestamp in db.all_field_for('timestamp', db.all_book_ids()).items():
-            if most_recent is None or timestamp > most_recent:
-                most_recent = timestamp
-                most_recent_id = book_id
+    def view(self, book_id):
+        ''' View book '''
+        view_plugin = self.gui.iactions['View']
+        # Ask the view plugin to launch the viewer for row_number
+        view_plugin._view_calibre_books([book_id])
 
-        if most_recent_id is not None:
-            # Get a reference to the View plugin
-            view_plugin = self.gui.iactions['View']
-            # Ask the view plugin to launch the viewer for row_number
-            view_plugin._view_calibre_books([most_recent_id])
-
-    def update_metadata(self):
-        '''
-        Set the metadata in the files in the selected book's record to
-        match the current metadata in the database.
-        '''
-        from calibre.ebooks.metadata.meta import set_metadata
-        from calibre.gui2 import error_dialog, info_dialog
-
-        # Get currently selected books
-        rows = self.gui.library_view.selectionModel().selectedRows()
-        if not rows or len(rows) == 0:
-            return error_dialog(self.gui, 'Cannot update metadata',
-                             'No books selected', show=True)
-        # Map the rows to book ids
-        ids = list(map(self.gui.library_view.model().id, rows))
-        db = self.db.new_api
-        for book_id in ids:
-            # Get the current metadata for this book from the db
-            mi = db.get_metadata(book_id, get_cover=True, cover_as_data=True)
-            fmts = db.formats(book_id)
-            if not fmts:
-                continue
-            for fmt in fmts:
-                fmt = fmt.lower()
-                # Get a python file object for the format. This will be either
-                # an in memory file or a temporary on disk file
-                ffile = db.format(book_id, fmt, as_file=True)
-                ffile.seek(0)
-                # Set metadata in the format
-                set_metadata(ffile, mi, fmt)
-                ffile.seek(0)
-                # Now replace the file in the calibre library with the updated
-                # file. We dont use add_format_with_hooks as the hooks were
-                # already run when the file was first added to calibre.
-                db.add_format(book_id, fmt, ffile, run_hooks=False)
-
-        info_dialog(self, 'Updated files',
-                'Updated the metadata in the files of %d book(s)'%len(ids),
-                show=True)
 
     def config(self):
         self.do_user_config(parent=self)

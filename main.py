@@ -78,24 +78,26 @@ class DemoDialog(QDialog):
         self.resize(self.sizeHint())
 
     def about(self):
-        # Get the about text from a file inside the plugin zip file
-        # The get_resources function is a builtin function defined for all your
-        # plugin code. It loads files from the plugin zip file. It returns
-        # the bytes from the specified file.
-        #
-        # Note that if you are loading more than one file, for performance, you
-        # should pass a list of names to get_resources. In this case,
-        # get_resources will return a dictionary mapping names to bytes. Names that
-        # are not found in the zip file will not be in the returned dictionary.
         text = get_resources('about.txt')
-        QMessageBox.about(self, 'About the Interface Plugin Demo',
-                text.decode('utf-8'))
+        QMessageBox.about(self, 'About the Epub Text Search Plugin', text.decode('utf-8'))
 
     def search_epub_content(self):
+        ''' Search epub content '''
         keyword = self.search_input.text()
         print('search input: '+ keyword)
-        result = subprocess.run([prefs['rga_path'], keyword, '/Users/danielkao/Calibre Library', '-C', '2', '-g', '*.epub'], stdout=subprocess.PIPE)
-        print(result.stdout.decode('utf-8'))
+
+        db = self.db.new_api
+        matched_ids = {book_id for book_id in db.all_book_ids() if 'EPUB' in db.formats(book_id)}
+        for book_id in matched_ids:
+            mi = db.get_metadata(book_id, get_cover=False, cover_as_data=False)
+            if prefs['tags'] in mi.tags:
+                title = mi.title
+                filepath = fmt_path = self.gui.current_db.format_abspath(book_id, 'EPUB', index_is_id=True)
+                result = subprocess.run([prefs['rga_path'], keyword, filepath, '-C', '2', '-g', '*.epub'], stdout=subprocess.PIPE)
+                if len(result.stdout) != 0:
+                  print(title)
+                  print(filepath)
+                  print(result.stdout.decode('utf-8'))
 
     def marked(self):
         ''' Show books with only one format '''

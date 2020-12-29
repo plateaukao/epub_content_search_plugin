@@ -13,6 +13,7 @@ if False:
     get_icons = get_resources = None
 
 from PyQt5.Qt import QDialog, QVBoxLayout, QPushButton, QMessageBox, QLabel, QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QWidget, QLayout, QScrollBar, QAbstractItemView
+from PyQt5.QtCore import Qt
 
 from calibre_plugins.epub_content_search.config import prefs
 
@@ -26,6 +27,9 @@ class DemoDialog(QDialog):
         QDialog.__init__(self, gui)
         self.gui = gui
         self.do_user_config = do_user_config
+        largerFont = self.font()
+        largerFont.setPointSize(24)
+        self.setFont(largerFont)
 
         # The current database shown in the GUI
         # db is an instance of the class LibraryDatabase from db/legacy.py
@@ -97,17 +101,30 @@ class DemoDialog(QDialog):
                   book_button = QPushButton(title, self)
                   book_button.clicked.connect(partial(self.view, book_id))
                   widgetLayout.addWidget(book_button)
-                  label = result.stdout.decode('utf-8')
-                  widgetLayout.addWidget(QLabel(label))
-                  #widgetLayout.addStretch()
                   widgetLayout.setSizeConstraint(QLayout.SetFixedSize)
-
                   widget = QWidget()
                   widget.setLayout(widgetLayout)
                   widgetItem = QListWidgetItem()
                   widgetItem.setSizeHint(widget.sizeHint())
                   self.search_results.addItem(widgetItem)
                   self.search_results.setItemWidget(widgetItem, widget)
+
+                  matched = result.stdout.decode('utf-8')
+                  for lines in matched.split('--\n'):
+                    widgetLayout = QVBoxLayout()
+                    qLabel = QLabel(lines.replace(keyword, '<font color=yellow>' + keyword + '</font>').replace('\n\n', '\n').replace('\n','<br/>') + '<br/>')
+                    qLabel.setTextFormat(Qt.RichText)
+                    qLabel.setStyleSheet(''' font-size: 24px; ''')
+                    widgetLayout.addWidget(qLabel)
+
+                    widgetLayout.setSizeConstraint(QLayout.SetFixedSize)
+                    widget = QWidget()
+                    widget.setLayout(widgetLayout)
+                    widgetItem = QListWidgetItem()
+                    widgetItem.setSizeHint(widget.sizeHint())
+                    self.search_results.addItem(widgetItem)
+                    self.search_results.setItemWidget(widgetItem, widget)
+
 
     def marked(self):
         ''' Show books with only one format '''
@@ -126,7 +143,7 @@ class DemoDialog(QDialog):
         ''' View book '''
         view_plugin = self.gui.iactions['View']
         # Ask the view plugin to launch the viewer for row_number
-        view_plugin._view_calibre_books([book_id])
+        view_plugin.view_format_by_id(book_id, 'EPUB')
 
 
     def config(self):

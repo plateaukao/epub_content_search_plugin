@@ -14,7 +14,6 @@ class EpubGrep(object):
     tag_pattern = re.compile(b'^[^<>]*>|<[^>]+>|<[^>]*$')
 
     def __init__(self, pattern):
-        self.already_visited = set([])
         if type(pattern) is str:
             pattern = pattern.encode('utf-8')
         self._pattern = pattern
@@ -22,19 +21,13 @@ class EpubGrep(object):
             pattern = re.compile(pattern)
         self.pattern = pattern
         self.min_matches = 1
-        self.max_previews = 20
+        self.max_previews = 40
         self.ignore_case = False
         self.max_size = 10 * 1024 * 1024
-        self.status = 'not started'
-        self.preview = False
         self.preview_lead = 80
         self.preview_lag = 80
         self.randomize = False
-        self.colorize = False
         self.output_width = 80
-
-    def setColorize(self, do_colorize):
-        self.colorize = do_colorize
 
     def setIgnoreCase(self, do_ignore_case):
         self.ignore_case = do_ignore_case
@@ -66,21 +59,14 @@ class EpubGrep(object):
         self.randomize = do_randomize
 
     def read_pkzip(self, path, c):
-        try:
-            b = BytesIO(c)
-            with zipfile.ZipFile(b, compression=zipfile.ZIP_DEFLATED, mode='r') as z:
-                content = []
-                for member in z.infolist():
-                    if member.file_size > self.max_size:
-                        continue
-                    content.append(z.read(member.filename))
-            return content
-        except Exception as e:
-            if self.colorize:
-                print("\033[1;31mFailed to open %s: %s\033[0;0m" % (path, e), file=sys.stderr)
-            else:
-                print("Failed to open %s: %s" % (path, e), file=sys.stderr)
-            return False
+        b = BytesIO(c)
+        with zipfile.ZipFile(b, compression=zipfile.ZIP_DEFLATED, mode='r') as z:
+            content = []
+            for member in z.infolist():
+                if member.file_size > self.max_size:
+                    continue
+                content.append(z.read(member.filename))
+        return content
 
     def print_previews(self, matches, printed_something_already):
 
@@ -99,23 +85,19 @@ class EpubGrep(object):
                 idx = block.find('\n', offs, offs + self.output_width - 4)
                 if idx == -1:
                     idx = offs + self.output_width - 4
-                lines.append('    ' + block[offs:idx])
+                lines.append('' + block[offs:idx])
                 offs = idx + 1 if block[idx:idx + 1] == '\n' else idx
             return '\n'.join(lines)
 
         def _print_block(block):
-            color_prefix = ''
-            if block.startswith(b'\033['):
-                color_prefix = block[0:block.index(b'm')+1]
             block = EpubGrep.tag_pattern.sub(b'', block).strip()
             if len(block) == 0:
                 return
-            block = color_prefix + block
             block = block.decode('utf-8', errors='ignore')
-            print(_wrap(block), "\033[0;0m" if self.colorize else '')
+            return _wrap(block)
 
         if len(matches) < 1:
-            return False
+            return ''
 
         matches.sort(key=lambda m: m.start(0))
         parts = _match_to_parts(matches[0])
@@ -132,41 +114,35 @@ class EpubGrep(object):
 
         block = b''
         last_was_context = False
+        output_string = ''
         for p in parts:
             if not p[3]:  # this part is a match, not context
                 last_was_context = False
-                if self.colorize:
-                    block = block + b'\033[1;31m%s' % (p[2][p[0]:p[1]])
-                else:
-                    block = block + p[2][p[0]:p[1]]
+                block = block + p[2][p[0]:p[1]]
                 continue
             if last_was_context:  # this is a new context block
                 if printed_something_already:
-                    print("---")
-                _print_block(block)
+                    output_string += "--\n"
+                output_string += _print_block(block) + "\n"
                 printed_something_already = True
                 block = b''
             last_was_context = True
-            if self.colorize:
-                block = block + b'\033[1;36m%s' % (p[2][p[0]:p[1]])
-            else:
-                block = block + p[2][p[0]:p[1]]
+            block = block + p[2][p[0]:p[1]]
 
         if printed_something_already:
-            print("---")
-        _print_block(block)
-        return True
+            output_string += "--\n"
+        output_string += _print_block(block) + "\n"
+        return output_string
 
     def _searchcontents(self, path, contents):
         n = 0
         matches = []
+        output_string = ''
         for c in contents:
             m = [match for match in self.pattern.finditer(c)]
             n = n + len(m)
             matches.append(m)
         if n >= self.min_matches:
-            print("%s: %d" % (path.decode('utf-8', errors='ignore'), n))
-
             if not self.preview:
                 return
 
@@ -175,51 +151,31 @@ class EpubGrep(object):
             for m in matches:
                 m = m[0:previews]
                 previews = previews - len(m)
-                if self.print_previews(m, printed_something_already):
+                string = self.print_previews(m, printed_something_already)
+                output_string += string
+                if string != '':
                     printed_something_already = True
                 if previews == 0:
                     break
 
-    def _searchdir(self, path):
-        try:
-            realpath = os.path.realpath(path)
-            if realpath in self.already_visited:
-                return
-            self.already_visited.add(realpath)
-            self.status = path
-            st = os.stat(realpath)
-            mode = st.st_mode
-
-            if stat.S_ISDIR(mode):
-                ls = os.listdir(realpath)
-                if self.randomize:
-                    random.shuffle(ls)
-                for sp in ls:
-                    self._searchdir(os.path.join(path, sp))
-
-            elif stat.S_ISREG(mode):
-                if st.st_size > self.max_size:
-                    return
-                with open(realpath, mode='rb') as f:
-                    c = f.read()
-                if c.startswith(b'PK\x03\x04'):  # file is a pkzip file
-                    content = self.read_pkzip(path, c)
-                    if content:
-                        self._searchcontents(path, content)
-                else:
-                    self._searchcontents(path, [c])
-
-        except Exception as e:
-            if self.colorize:
-                print("\033[1;31mFailed to read %s: %s\033[0;0m" % (path.decode('utf-8', errors='ignore'), e), file=sys.stderr)
-            else:
-                print("Failed to read %s: %s" % (path.decode('utf-8', 'backslashreplace'), e), file=sys.stderr)
+        return output_string
 
     def searchin(self, path):
-        if type(path) is str:
-            path = path.encode('utf-8')
-        self._searchdir(path)
-        self.status = 'finished'
+        realpath = os.path.realpath(path)
+        st = os.stat(realpath)
+        mode = st.st_mode
+
+        if stat.S_ISREG(mode):
+            if st.st_size > self.max_size:
+                return
+            with open(realpath, mode='rb') as f:
+                c = f.read()
+            if c.startswith(b'PK\x03\x04'):  # file is a pkzip file
+                content = self.read_pkzip(path, c)
+                if content:
+                    return self._searchcontents(path, content)
+            else:
+                return self._searchcontents(path, [c])
 
 
 def argument_filesize(size_str):
@@ -265,7 +221,6 @@ if __name__ == "__main__":
     parser.add_argument('--lead', action='store', type=argument_ge_zero, default=80, help='Preview lead before matches for use with -p. Default 80')
     parser.add_argument('-n', '--min-matches', action='store', type=argument_gt_zero, default=1, help='Minimum number of matches per file. Default 1')
     parser.add_argument('-m', '--max-previews', action='store', type=argument_gt_zero, default=20, help='Maximum number of previews to show per file. Default 20')
-    parser.add_argument('--nocolor', action='store_false', dest='color', help='Don\'t colorize output')
     parser.add_argument('-p', '--preview', action='store_true', help='Preview matches')
     parser.add_argument('-r', '--randomize', action='store_true', help='Randomize search order')
     parser.add_argument('--seed', action='store', type=int, default=random.randint(0, 2**32), help='Seed for -r (to repeat a search order in combination with -v)')
@@ -288,13 +243,10 @@ if __name__ == "__main__":
             print("Showing at most %d previews with %d lead and %d lag" % (args.max_previews, args.lead, args.lag))
         if args.randomize:
             print("Randomizing directory traversal order, using seed %d" % (args.seed,))
-        if args.color:
-            print("Colorizing output")
 
     random.seed(args.seed)
 
     grep = EpubGrep(args.PATTERN)
-    grep.setColorize(args.color)
     grep.setIgnoreCase(args.ignore_case)
     grep.setMaxSize(args.size_max)
     grep.setMinMatches(args.min_matches)
@@ -307,22 +259,8 @@ if __name__ == "__main__":
 
     started = time()
 
-    def printstatus(signum, frame):
-        time_spent = time() - started
-        n = len(grep.already_visited)
-        nps = n / time_spent
-        if args.color:
-            print("\033[0;32mCurrent Status: %d files visited (%.2f / s), currently at %s\033[0;0m" % (n, nps, repr(grep.status)))
-        else:
-            print("Current Status: %d files visited (%.2f / s), currently at %s" % (n, nps, repr(grep.status)))
-    signal(SIGQUIT, printstatus)
-
     try:
         for path in args.FILE:
-            grep.searchin(path)
+            print(grep.searchin(path))
     except KeyboardInterrupt:
-        printstatus(0, 0)
-        if args.color:
-            print("\033[0;32mInterrupted\033[0;0m")
-        else:
-            print("Interrupted")
+        print("Interrupted")

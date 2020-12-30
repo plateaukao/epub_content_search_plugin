@@ -16,6 +16,7 @@ from PyQt5.Qt import QDialog, QVBoxLayout, QPushButton, QMessageBox, QLabel, QHB
 from PyQt5.QtCore import Qt
 
 from calibre_plugins.epub_content_search.config import prefs
+from calibre_plugins.epub_content_search.epubgrep import EpubGrep
 
 import subprocess
 
@@ -92,8 +93,13 @@ class DemoDialog(QDialog):
             if prefs['tags'] in mi.tags:
                 title = mi.title
                 filepath = fmt_path = self.gui.current_db.format_abspath(book_id, 'EPUB', index_is_id=True)
-                result = subprocess.run([prefs['rga_path'], keyword, filepath, '-C', '2', '-g', '*.epub'], stdout=subprocess.PIPE)
-                if len(result.stdout) != 0:
+                grep = EpubGrep(keyword)
+                grep.setPreview(True)
+                grep_result = grep.searchin(filepath)
+                print(grep_result)
+                #result = subprocess.run([prefs['rga_path'], keyword, filepath, '-C', '2', '-g', '*.epub'], stdout=subprocess.PIPE)
+                #if len(result.stdout) != 0:
+                if len(grep_result) != 0:
                   widgetLayout = QVBoxLayout()
                   book_button = QPushButton(title, self)
                   book_button.clicked.connect(partial(self.view, book_id))
@@ -106,7 +112,8 @@ class DemoDialog(QDialog):
                   self.search_results.addItem(widgetItem)
                   self.search_results.setItemWidget(widgetItem, widget)
 
-                  matched = result.stdout.decode('utf-8')
+                  #matched = result.stdout.decode('utf-8')
+                  matched = grep_result
                   for lines in matched.split('--\n'):
                     widgetLayout = QVBoxLayout()
                     qLabel = QLabel(lines.replace(keyword, '<font color=yellow>' + keyword + '</font>').replace('\n\n', '\n').replace('\n','<br/>') + '<br/>')
@@ -141,7 +148,8 @@ class DemoDialog(QDialog):
         view_plugin = self.gui.iactions['View']
         # Ask the view plugin to launch the viewer for row_number
         keyword = self.search_input.text()
-        view_plugin.view_format_by_id(book_id, 'EPUB', search=keyword)
+        #view_plugin.view_format_by_id(book_id, 'EPUB', search=keyword)
+        view_plugin.view_format_by_id(book_id, 'EPUB')
 
 
     def config(self):

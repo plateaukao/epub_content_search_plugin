@@ -41,19 +41,8 @@ class DemoDialog(QDialog):
         self.l = QVBoxLayout()
         self.setLayout(self.l)
 
-        self.label = QLabel('Epub Text Search')
-        self.l.addWidget(self.label)
-
         self.setWindowTitle('Epub Text Search')
         self.setWindowIcon(icon)
-
-        self.about_button = QPushButton('About', self)
-        self.about_button.clicked.connect(self.about)
-        self.l.addWidget(self.about_button)
-
-        self.conf_button = QPushButton('Configure this plugin', self)
-        self.conf_button.clicked.connect(self.config)
-        self.l.addWidget(self.conf_button)
 
         # add search line 
         self.search_layout = QHBoxLayout()
@@ -71,6 +60,14 @@ class DemoDialog(QDialog):
         self.search_results.setVerticalScrollBar(self.scroll_bar)
         self.search_results.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel) 
         self.l.addWidget(self.search_results)
+
+        self.about_button = QPushButton('About', self)
+        self.about_button.clicked.connect(self.about)
+        self.l.addWidget(self.about_button)
+
+        self.conf_button = QPushButton('Configure this plugin', self)
+        self.conf_button.clicked.connect(self.config)
+        self.l.addWidget(self.conf_button)
 
         self.resize(self.sizeHint())
 
@@ -143,10 +140,9 @@ class DemoDialog(QDialog):
         ''' View book '''
         view_plugin = self.gui.iactions['View']
         # Ask the view plugin to launch the viewer for row_number
-        view_plugin.view_format_by_id(book_id, 'EPUB')
+        keyword = self.search_input.text()
+        view_plugin.view_format_by_id(book_id, 'EPUB', search=keyword)
 
 
     def config(self):
         self.do_user_config(parent=self)
-        # Apply the changes
-        self.label.setText(prefs['rga_path'])

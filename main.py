@@ -18,8 +18,6 @@ from PyQt5.QtCore import Qt
 from calibre_plugins.epub_content_search.config import prefs
 from calibre_plugins.epub_content_search.epubgrep import EpubGrep
 
-import subprocess
-
 from functools import partial
 
 class DemoDialog(QDialog):
@@ -96,8 +94,6 @@ class DemoDialog(QDialog):
                 grep.setPreview(True)
                 grep_result = grep.searchin(filepath)
                 #print(grep_result)
-                #result = subprocess.run([prefs['rga_path'], keyword, filepath, '-C', '2', '-g', '*.epub'], stdout=subprocess.PIPE)
-                #if len(result.stdout) != 0:
                 if grep_result != None and len(grep_result) != 0:
                   widgetLayout = QVBoxLayout()
                   book_button = QPushButton(title, self)
@@ -113,7 +109,7 @@ class DemoDialog(QDialog):
 
                   #matched = result.stdout.decode('utf-8')
                   matched = grep_result
-                  search_result_count = int(prefs['search_result_count'])
+                  search_result_count = 0 if prefs['search_result_count'] == '' else int(prefs['search_result_count'])
                   count = 0
                   for lines in matched.split('--\n'):
                     # only handles results within limit

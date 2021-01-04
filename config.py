@@ -19,8 +19,8 @@ prefs = JSONConfig('plugins/epub_content_search')
 
 # Set defaults
 prefs.defaults['rga_path'] = '/usr/local/bin/rga'
-prefs.defaults['tags'] = 'subtitle'
-prefs.defaults['search_result_count'] = '0'
+prefs.defaults['tags'] = 'searchable'
+prefs.defaults['search_result_count'] = ''
 
 
 class ConfigWidget(QWidget):
@@ -32,17 +32,9 @@ class ConfigWidget(QWidget):
         self.l = QHBoxLayout()
         self.layout.addLayout(self.l)
 
-        self.label = QLabel('rga commandline path')
-        self.l.addWidget(self.label)
-
-        self.msg = QLineEdit(self)
-        self.msg.setText(prefs['rga_path'])
-        self.l.addWidget(self.msg)
-        self.label.setBuddy(self.msg)
-
         self.l = QHBoxLayout()
         self.layout.addLayout(self.l)
-        self.label = QLabel('epub tags')
+        self.label = QLabel('epub tag')
         self.l.addWidget(self.label)
 
         self.tags = QLineEdit(self)
@@ -62,6 +54,5 @@ class ConfigWidget(QWidget):
         self.label.setBuddy(self.search_result_count)
 
     def save_settings(self):
-        prefs['rga_path'] = self.msg.text()
         prefs['tags'] = self.tags.text()
         prefs['search_result_count'] = self.search_result_count.text()

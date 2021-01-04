@@ -6,7 +6,7 @@ __license__   = 'GPL v3'
 __copyright__ = '2020, Daniel Kao<daniel.kao@gmail.com>'
 __docformat__ = 'restructuredtext en'
 
-from PyQt5.Qt import QWidget, QHBoxLayout, QLabel, QLineEdit, QVBoxLayout
+from PyQt5.Qt import QWidget, QHBoxLayout, QLabel, QLineEdit, QVBoxLayout, QIntValidator
 
 from calibre.utils.config import JSONConfig
 
@@ -20,6 +20,7 @@ prefs = JSONConfig('plugins/epub_content_search')
 # Set defaults
 prefs.defaults['rga_path'] = '/usr/local/bin/rga'
 prefs.defaults['tags'] = 'subtitle'
+prefs.defaults['search_result_count'] = '0'
 
 
 class ConfigWidget(QWidget):
@@ -49,6 +50,18 @@ class ConfigWidget(QWidget):
         self.l.addWidget(self.tags)
         self.label.setBuddy(self.tags)
 
+        self.l = QHBoxLayout()
+        self.layout.addLayout(self.l)
+        self.label = QLabel('search result limit:')
+        self.l.addWidget(self.label)
+
+        self.search_result_count = QLineEdit(self)
+        self.search_result_count.setValidator(QIntValidator(self.search_result_count))
+        self.search_result_count.setText(prefs['search_result_count'])
+        self.l.addWidget(self.search_result_count)
+        self.label.setBuddy(self.search_result_count)
+
     def save_settings(self):
         prefs['rga_path'] = self.msg.text()
         prefs['tags'] = self.tags.text()
+        prefs['search_result_count'] = self.search_result_count.text()

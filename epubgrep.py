@@ -24,10 +24,10 @@ class EpubGrep(object):
         self.max_previews = 40
         self.ignore_case = False
         self.max_size = 10 * 1024 * 1024
-        self.preview_lead = 80
-        self.preview_lag = 80
+        self.preview_lead = 120
+        self.preview_lag = 120
         self.randomize = False
-        self.output_width = 80
+        self.output_width = 120
 
     def setIgnoreCase(self, do_ignore_case):
         self.ignore_case = do_ignore_case
@@ -58,10 +58,14 @@ class EpubGrep(object):
     def setRandomize(self, do_randomize):
         self.randomize = do_randomize
 
+    def get_zip_info_file_name(self, zip_info):
+        return zip_info.filename
+
     def read_pkzip(self, path, c):
         b = BytesIO(c)
         with zipfile.ZipFile(b, compression=zipfile.ZIP_DEFLATED, mode='r') as z:
             content = []
+            sorted_infolist = z.infolist().sort(key=self.get_zip_info_file_name)
             for member in z.infolist():
                 if member.file_size > self.max_size:
                     continue
@@ -261,6 +265,6 @@ if __name__ == "__main__":
 
     try:
         for path in args.FILE:
-            print(grep.searchin(path))
+            grep.searchin(path)
     except KeyboardInterrupt:
         print("Interrupted")

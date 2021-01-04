@@ -12,7 +12,7 @@ if False:
     # You do not need this code in your plugins
     get_icons = get_resources = None
 
-from PyQt5.Qt import QDialog, QVBoxLayout, QPushButton, QMessageBox, QLabel, QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QWidget, QLayout, QScrollBar, QAbstractItemView
+from PyQt5.Qt import QDialog, QVBoxLayout, QPushButton, QMessageBox, QLabel, QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QWidget, QLayout, QScrollBar, QAbstractItemView 
 from PyQt5.QtCore import Qt
 
 from calibre_plugins.epub_content_search.config import prefs
@@ -70,7 +70,7 @@ class DemoDialog(QDialog):
         self.conf_button.clicked.connect(self.config)
         self.l.addWidget(self.conf_button)
 
-        self.resize(self.sizeHint())
+        self.resize(800, 700)
 
     def about(self):
         text = get_resources('about.txt')
@@ -83,7 +83,6 @@ class DemoDialog(QDialog):
 
         # get search input
         keyword = self.search_input.text()
-        print('search input: '+ keyword)
 
         # search in each book
         db = self.db.new_api
@@ -96,13 +95,13 @@ class DemoDialog(QDialog):
                 grep = EpubGrep(keyword)
                 grep.setPreview(True)
                 grep_result = grep.searchin(filepath)
-                print(grep_result)
+                #print(grep_result)
                 #result = subprocess.run([prefs['rga_path'], keyword, filepath, '-C', '2', '-g', '*.epub'], stdout=subprocess.PIPE)
                 #if len(result.stdout) != 0:
-                if len(grep_result) != 0:
+                if grep_result != None and len(grep_result) != 0:
                   widgetLayout = QVBoxLayout()
                   book_button = QPushButton(title, self)
-                  book_button.clicked.connect(partial(self.view, book_id))
+                  book_button.clicked.connect(partial(self.view, book_id, 0))
                   widgetLayout.addWidget(book_button)
                   widgetLayout.setSizeConstraint(QLayout.SetFixedSize)
                   widget = QWidget()
@@ -114,7 +113,12 @@ class DemoDialog(QDialog):
 
                   #matched = result.stdout.decode('utf-8')
                   matched = grep_result
+                  search_result_count = int(prefs['search_result_count'])
+                  count = 0
                   for lines in matched.split('--\n'):
+                    # only handles results within limit
+                    if search_result_count != 0 and count >= search_result_count:
+                        break
                     widgetLayout = QVBoxLayout()
                     qLabel = QLabel(lines.replace(keyword, '<font color=yellow>' + keyword + '</font>').replace('\n\n', '\n').replace('\n','<br/>') + '<br/>')
                     qLabel.setTextFormat(Qt.RichText)
@@ -126,9 +130,15 @@ class DemoDialog(QDialog):
                     widget.setLayout(widgetLayout)
                     widgetItem = QListWidgetItem()
                     widgetItem.setSizeHint(widget.sizeHint())
+                    widgetItem.setData(Qt.ItemDataRole.UserRole, (book_id, count))
                     self.search_results.addItem(widgetItem)
                     self.search_results.setItemWidget(widgetItem, widget)
+                    count += 1
+        self.search_results.itemClicked.connect(self.view_search_result) 
 
+    def view_search_result(self, item):
+        (book_id, result_index) = item.data(Qt.ItemDataRole.UserRole)
+        self.view(book_id, result_index)
 
     def marked(self):
         ''' Show books with only one format '''
@@ -143,13 +153,13 @@ class DemoDialog(QDialog):
         self.gui.search.setEditText('marked:true')
         self.gui.search.do_search()
 
-    def view(self, book_id):
+    def view(self, book_id, result_index):
         ''' View book '''
         view_plugin = self.gui.iactions['View']
         # Ask the view plugin to launch the viewer for row_number
         keyword = self.search_input.text()
-        #view_plugin.view_format_by_id(book_id, 'EPUB', search=keyword)
-        view_plugin.view_format_by_id(book_id, 'EPUB')
+        view_plugin.view_format_by_id(book_id, 'EPUB', search=keyword + ':' + str(result_index))
+        #view_plugin.view_format_by_id(book_id, 'EPUB')
 
 
     def config(self):

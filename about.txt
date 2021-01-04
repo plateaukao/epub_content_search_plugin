@@ -1,7 +1,7 @@
-The Interface Plugin Demo
+The Epub Text Search Plugin
 ===========================
 
-Created by Kovid Goyal
+Created by Daniel Kao
 
 Requires calibre >= 0.7.53
 

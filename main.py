@@ -158,8 +158,8 @@ class DemoDialog(QDialog):
         view_plugin = self.gui.iactions['View']
         # Ask the view plugin to launch the viewer for row_number
         keyword = self.search_input.text()
-        view_plugin.view_format_by_id(book_id, 'EPUB', search=keyword + ':' + str(result_index))
-        #view_plugin.view_format_by_id(book_id, 'EPUB')
+        #view_plugin.view_format_by_id(book_id, 'EPUB', search=keyword + ':' + str(result_index))
+        view_plugin.view_format_by_id(book_id, 'EPUB')
 
 
     def config(self):
